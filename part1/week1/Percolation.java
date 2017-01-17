@@ -5,19 +5,40 @@ import edu.princeton.cs.algs4.In;
 // java-algs4 Percolation
 public class Percolation {
   private int nValue;
+  private int numberOfOpenSitesVariable;
   private int[][] id;
   private WeightedQuickUnionUF uf;
+  private int[] virtual_top; // [0] is row, [1] is col
+  private int[] virtual_bottom; // [0] is row, [1] is col
 
   public Percolation(int n) {
     // create n-by-n grid, with all sites blocked
+    if (n <= 0)
+      throw new java.lang.IllegalArgumentException();
+
     nValue = n;
-    uf = new WeightedQuickUnionUF(n*n);
+    numberOfOpenSitesVariable = 0;
+    virtual_top = new int[] {nValue, nValue+1}; // second to last element, cause we used +2 in uf initialization
+    virtual_bottom = new int[] {nValue, nValue+2}; // last element, cause we used +2 in uf initialization
+
+    // the +2 account for the virtual top and bottom
+    uf = new WeightedQuickUnionUF(n*n + 2);
     id = new int [n][n];
 
     for (int i = 0; i < n; i++) {
       for (int j = 0; j < n; j++) {
         id[i][j] = 0;
       }
+    }
+
+    // connect the virtual top to the top row
+    for (int i = 1; i <= nValue; i++) {
+      union(virtual_top[0]-1, virtual_top[1]-1, 1-1, i-1);
+    }
+
+    // connect the virtual bottom to the bottom row
+    for (int i = 1; i <= nValue; i++) {
+      union(virtual_bottom[0]-1, virtual_bottom[1]-1, nValue-1, i-1);
     }
   }
 
@@ -39,12 +60,11 @@ public class Percolation {
   private boolean checkValuesBoolean(int row, int col) {
     int r = row-1;
     int c = col-1;
-    try {
-      r = id[r][c];
-      return true;
-    } catch (ArrayIndexOutOfBoundsException e) {
+    if (r < 0 || r >= nValue)
       return false;
-    }
+    if (c < 0 || c >= nValue)
+      return false;
+    return true;
   }
 
   public void open(int row, int col) {
@@ -52,13 +72,15 @@ public class Percolation {
 
     checkValues(row, col);
     id[row-1][col-1] = 1;
+    numberOfOpenSitesVariable++;
 
+    int r, c;
     for (int i = 0; i < values.length; i = i + 2) {
-      int r = values[i];
-      int c = values[i+1];
+      r = values[i];
+      c = values[i+1];
 
       if (checkValuesBoolean(r, c) && isOpen(r, c) && !connected(row-1, col-1, r-1, c-1))
-            union(row-1, col-1, r-1, c-1);
+        union(row-1, col-1, r-1, c-1);
     }
   }
 
@@ -66,15 +88,10 @@ public class Percolation {
     // is site (row, col) open?
     checkValues(row, col);
 
-    try {
-      if (id[row-1][col-1] == 0)
-        return false;
-      else
-        return true;
-    }
-    catch (ArrayIndexOutOfBoundsException exception) {
+    if (id[row-1][col-1] == 0)
       return false;
-    }
+    else
+      return true;
   }
 
   public boolean isFull(int row, int col) {
@@ -86,27 +103,26 @@ public class Percolation {
     if (!isOpen(row, col))
       return false;
 
-    // Check all open sites on the top row and see if it's connected to row, col.
-    for (int i = 1; i <= nValue; i++) {
-      if (isOpen(1, i) && connected(row-1, col-1, 1-1, i-1))
-        return true;
-    }
-    return false;
+    // just check if current site connects to the virtual_top
+    if(connected(row-1, col-1, virtual_top[0]-1, virtual_top[1]-1))
+      return true;
+    else
+      return false;
   }
 
   public int numberOfOpenSites() {
     // number of open sites
-    return uf.count();
+    return numberOfOpenSitesVariable;
   }
 
   public boolean percolates() {
     // does the system percolate?
     // percolates if there is a full site on the bottom row
-    for (int i = 1; i <= nValue; i++) {
-      if (isFull(nValue, i))
-        return true;
-    }
-    return false;
+    // -- just check if virtual top is connected to virtual bottom
+    if(connected(virtual_top[0]-1, virtual_top[1]-1, virtual_bottom[0]-1, virtual_bottom[1]-1))
+      return true;
+    else
+      return false;
   }
 
   public static void main(String[] args) {
@@ -116,7 +132,7 @@ public class Percolation {
       Percolation p = new Percolation(in.readInt());
       int row, col;
 
-      while(!in.isEmpty()) {
+      while (!in.isEmpty()) {
         row = in.readInt();
         col = in.readInt();
         p.open(row, col);
@@ -125,7 +141,7 @@ public class Percolation {
       // System.out.println(args[0]);
       // System.out.println(p.percolates());
 
-    } catch(IllegalArgumentException e) {
+    } catch (IllegalArgumentException e) {
       System.out.println(e);
     }
   }
